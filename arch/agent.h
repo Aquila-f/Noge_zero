@@ -43,6 +43,8 @@ public:
 	virtual void notify(const std::string& msg) { meta[msg.substr(0, msg.find('='))] = { msg.substr(msg.find('=') + 1) }; }
 	virtual std::string name() const { return property("name"); }
 	virtual std::string role() const { return property("role"); }
+	virtual std::string mcts_c() const { return property("c"); }
+	virtual std::string simulation_count() const { return property("N"); }
 
 protected:
 	typedef std::string key;
@@ -109,8 +111,11 @@ public:
 
 class mcts_tree : public basic_agent_func{
 public:
-    mcts_tree(const std::string& args = "") : basic_agent_func(args){
-        simulation_count_ = 1;
+    mcts_tree(const std::string& args = "") : basic_agent_func(args),
+		c_(0.3), simulation_count_(100){
+		if (simulation_count() != "100") simulation_count_ = stoi(simulation_count());
+		if (mcts_c() != "0.3") simulation_count_ = stof(mcts_c());
+		std::cout << "sim_count:" << simulation_count_ << std::endl;
     }
 
     	int check_board_info(const int p, const board& b){
@@ -121,24 +126,23 @@ public:
         node* root = new node(state);
 		board after;
 		
-		int sim_tim = 100;
-		for(int i=0;i<sim_tim;i++){
+		
+		for(int i=0;i<simulation_count_;i++){
 			after = state;
 			node* ii = Selection_Expansion(root, after);
 			board::piece_type losser = Rollout(ii, after);
 			Backpropagation(losser);
 		}
 
-		if(false){
-			std::cout << root->empty_vector[0] << std::endl;
-			std::cout << state;
-			std::cout << state.info().who_take_turns << std::endl;
-			print_node(root);
-			for(auto n : root->level_vector){
-				print_node(n); 
-			}
-		}
-
+		// if(false){
+		// 	std::cout << root->empty_vector[0] << std::endl;
+		// 	std::cout << state;
+		// 	std::cout << state.info().who_take_turns << std::endl;
+		// 	print_node(root);
+		// 	for(auto n : root->level_vector){
+		// 		print_node(n); 
+		// 	}
+		// }
 
 		if(root->level_vector.size() == 0) return action();
 		int max_visit_n=-1;
@@ -168,7 +172,7 @@ public:
 				update_node_vector.push_back(root->level_vector[i]);
 				return root->level_vector[i];
 			}else{
-				uct = root->level_vector[i]->win_count/root->level_vector[i]->visit_count+c_*sqrt(log(root->visit_count)/root->level_vector[i]->visit_count);
+				uct = (root->level_vector[i]->win_count/root->level_vector[i]->visit_count)+c_*sqrt(log(root->visit_count)/root->level_vector[i]->visit_count);
 				if(max_uct < uct){
 					max_uct = uct;
 					max_uct_idx = i;
@@ -217,20 +221,13 @@ public:
 	}
 
     
-    
-    
 private:
     int thread_id;
-	std::vector<action::place> space_;
-	std::vector<action::place> space_a_;
 
-	// std::vector<int> play_sequence;
 	std::vector<node*> update_node_vector;
 	std::vector<node*> release_node_vector;
-	bool self_simulate_win;
-	std::string enemy_state_playmode_;
 	
-	double c_=0.3;
+	double c_;
 	double simulation_count_;
 	double simulation_time_;
 };
@@ -253,7 +250,7 @@ private:
 class player : public basic_agent_func {
 public:
 	player(const std::string& args = "") : basic_agent_func(args) {
-		std::cout << args << std::endl;
+		// std::cout << args << std::endl;
 		if (name() == "mcts"){
 			std::cout << "mcts" << std::endl;
 			policy = new mcts_action(args);
