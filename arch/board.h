@@ -137,6 +137,11 @@ public:
 		return place(p.x, p.y, who);
 	}
 
+	int check_place(const point& p){
+		board test = *this;
+		return test[p.x][p.y];
+	}
+
 	/**
 	 * calculate the liberty of the block of piece at [x][y]
 	 * return >= 0 if [x][y] is placed by who; otherwise return -1
