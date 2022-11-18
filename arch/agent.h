@@ -8,17 +8,8 @@
  */
 
 #pragma once
-#include <string>
-#include <random>
-#include <sstream>
-#include <map>
-#include <type_traits>
-#include <algorithm>
-#include <fstream>
-#include "board.h"
-#include "action.h"
-#include "mcts.h"
-// #include "players.h"
+#include "struct.h"
+
 
 class agent {
 public:
@@ -44,7 +35,7 @@ public:
 	virtual std::string name() const { return property("name"); }
 	virtual std::string role() const { return property("role"); }
 	virtual std::string mcts_c() const { return property("c"); }
-	virtual std::string simulation_count() const { return property("N"); }
+	virtual std::string total_simulation_count() const { return property("N"); }
 
 protected:
 	typedef std::string key;
@@ -91,7 +82,6 @@ protected:
  * random player for both side
  * put a legal piece randomly
  */
-
 class random_action : public basic_agent_func {
 public:
 	random_action(const std::string& args = "") : basic_agent_func(args){}
@@ -106,55 +96,19 @@ public:
 	}
 };
 
-
-
-
-class mcts_tree : public basic_agent_func{
+class mcts_tree: public basic_agent_func{
 public:
-    mcts_tree(const std::string& args = "") : basic_agent_func(args),
-		c_(0.3), simulation_count_(100){
-		if (simulation_count() != "100") simulation_count_ = stoi(simulation_count());
-		if (mcts_c() != "0.3") simulation_count_ = stof(mcts_c());
-		std::cout << "sim_count:" << simulation_count_ << std::endl;
+	mcts_tree(const std::string& args = "") : basic_agent_func(args),
+		c_(0.3){
+		if (mcts_c() != "0.3") c_ = stof(mcts_c());
     }
 
-    	int check_board_info(const int p, const board& b){
-		return b[p/9][p%9];
+
+	void MCTS_simulate(node* root, board& after){
+		node* leaf = Selection_Expansion(root, after);
+		board::piece_type losser = Rollout(leaf, after);
+		Backpropagation(losser);
 	}
-
-    action simulate_result(board& state){
-        node* root = new node(state);
-		board after;
-		
-		
-		for(int i=0;i<simulation_count_;i++){
-			after = state;
-			node* ii = Selection_Expansion(root, after);
-			board::piece_type losser = Rollout(ii, after);
-			Backpropagation(losser);
-		}
-
-		// if(false){
-		// 	std::cout << root->empty_vector[0] << std::endl;
-		// 	std::cout << state;
-		// 	std::cout << state.info().who_take_turns << std::endl;
-		// 	print_node(root);
-		// 	for(auto n : root->level_vector){
-		// 		print_node(n); 
-		// 	}
-		// }
-
-		if(root->level_vector.size() == 0) return action();
-		int max_visit_n=-1;
-		int max_visit_pos=-1;
-		for(auto subn : root->level_vector){
-			if(subn->visit_count > max_visit_n){
-				max_visit_n = subn->visit_count;
-				max_visit_pos = subn->move_position;
-			}
-		}
-        return action::place(max_visit_pos, who);
-    }
 
     node* Selection_Expansion(node* root, board& state, int state_flag=1){
 		update_node_vector.push_back(root);
@@ -172,7 +126,7 @@ public:
 				update_node_vector.push_back(root->level_vector[i]);
 				return root->level_vector[i];
 			}else{
-				uct = (root->level_vector[i]->win_count/root->level_vector[i]->visit_count)+c_*sqrt(log(root->visit_count)/root->level_vector[i]->visit_count);
+				uct = get_Q(root, i);
 				if(max_uct < uct){
 					max_uct = uct;
 					max_uct_idx = i;
@@ -182,6 +136,10 @@ public:
 		state.place(root->level_vector[max_uct_idx]->move_position);
 		return Selection_Expansion(root->level_vector[max_uct_idx], state, state_flag*-1);
     }	
+
+	double get_Q(const node* n, const int& idx){
+		return (n->level_vector[idx]->win_count/n->level_vector[idx]->visit_count)+c_*sqrt(log(n->visit_count)/n->level_vector[idx]->visit_count);
+	}
 	
 	board::piece_type Rollout(node* root, board&state){
 		std::vector<int> tmp = root->empty_vector;
@@ -211,6 +169,56 @@ public:
 		update_node_vector.clear();
     }
 
+private:
+	std::vector<node*> update_node_vector;
+	double c_;
+	double simulation_time_;
+};
+
+
+class mcts_management : public mcts_tree{
+public:
+    mcts_management(const std::string& args = "") : mcts_tree(args), total_simulation_count_(100){
+	if (total_simulation_count() != "100") total_simulation_count_ = stoi(total_simulation_count());
+    }
+
+    // int check_board_info(const int p, const board& b){
+	// 	return b[p/9][p%9];
+	// }
+
+    action simulate_result(const board& state){
+		board after=state;
+        node* root = new node(after);
+		
+		// MCTS 
+		int simulation_count=0;
+		while(true){
+			after = state;
+			MCTS_simulate(root, after);
+			simulation_count++;
+			if(simulation_count == total_simulation_count_) break;
+		}
+
+
+		if(root->level_vector.size() == 0) return action();
+		int max_visit_n=-1;
+		int max_visit_pos=-1;
+		for(auto subn : root->level_vector){
+			if(subn->visit_count > max_visit_n){
+				max_visit_n = subn->visit_count;
+				max_visit_pos = subn->move_position;
+			}
+		}
+		delete root;
+        return action::place(max_visit_pos, who);
+    }
+
+	double time_managment(){
+		double thinking_time;
+		time_management_bias_++;
+		return thinking_time;
+	}
+
 	void print_node(node* n){
 		std::cout << "visit_count " << n->visit_count << ", ";
 		std::cout << "win_count " << n->win_count << ", ";
@@ -219,37 +227,30 @@ public:
 		std::cout << "empty_vector" << n->empty_vector.size() << ", ";
 		std::cout << std::endl;
 	}
-
+protected:
+	double time_management_bias_;
     
 private:
     int thread_id;
-
-	std::vector<node*> update_node_vector;
-	std::vector<node*> release_node_vector;
-	
-	double c_;
-	double simulation_count_;
-	double simulation_time_;
+	double total_simulation_count_;
 };
 
-class mcts_action : public mcts_tree {
+class mcts_action : public mcts_management {
 public:
-	mcts_action(const std::string& args = "") : mcts_tree(args){}
-	virtual void close_episode(const std::string& flag = "") {time_management = 1;}
+	mcts_action(const std::string& args = "") : mcts_management(args){}
+	virtual void close_episode(const std::string& flag = "") {time_management_bias_ = 1;}
 	virtual action take_action(const board& state) {
-		board after = state;
-		// std::cout << after;
-		return simulate_result(after);
+		return simulate_result(state);
 	}
 private:
-	double time_management;
+	// double time_management_bias_;
 };
 
 
 
 class player : public basic_agent_func {
 public:
-	player(const std::string& args = "") : basic_agent_func(args) {
+	player(const std::string& args = "") : basic_agent_func(args), args_(args) {
 		// std::cout << args << std::endl;
 		if (name() == "mcts"){
 			std::cout << "mcts" << std::endl;
@@ -260,12 +261,15 @@ public:
 			// ((random_action*)policy)->a();
 		}
 	}
-
+	// virtual void open_episode(const std::string& flag = "") {policy = new mcts_action(args_);}
+	// virtual void close_episode(const std::string& flag = "") {delete policy;}
 	virtual action take_action(const board& state) {
+		// policy = new mcts_action(args_);
 		return policy->take_action(state);
 	}
 
 private:
+	std::string args_;
 	agent* policy;
 };
 
