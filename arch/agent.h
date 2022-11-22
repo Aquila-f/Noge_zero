@@ -36,6 +36,8 @@ public:
 	virtual std::string role() const { return property("role"); }
 	virtual std::string mcts_c() const { return property("c"); }
 	virtual std::string total_simulation_count() const { return property("N"); }
+	virtual std::string total_simulation_time() const { return property("T"); }
+	virtual std::string thread_num() const { return property("thread"); }
 
 protected:
 	typedef std::string key;
@@ -51,7 +53,38 @@ protected:
 	std::default_random_engine engine;
 };
 
+// class mcts_control{
+// public:
+// 	mcts_control(){}
+// public:
+// 	virtual bool loop_break(const int& inp_conference){return true;}
+// 	virtual void set_limit(const int& inp){std::cout << "set limit function\n";}
+// };
 
+// class time_controller : public mcts_control, public timer {
+// public:
+// 	time_controller(const time_t& limit_time) : mcts_control(), timer(), limit_time_(limit_time){}
+// public:
+// 	virtual bool loop_break(const int& inp_conference){
+// 		if(inp_conference >= limit_time_) return true;
+// 		return false;
+// 	}
+// 	virtual void set_limit(const int& inp){limit_time_ = inp;}
+// private:
+// 	int limit_time_;
+// };
+// class count_controller : public mcts_control {
+// public:
+// 	count_controller(const time_t limit_count) : mcts_control(), limit_count_(limit_count){}
+// public:
+// 	virtual bool loop_break(const int& inp_conference){
+// 		if(inp_conference >= limit_count_) return true;
+// 		return false;
+// 	}
+// 	virtual void set_limit(const int& inp){limit_count_ = inp;}
+// private:
+// 	int limit_count_;
+// };
 /**
  * base agent for agents with randomness
  */
@@ -70,8 +103,18 @@ public:
 		for (size_t i = 0; i < space.size(); i++)
 			space[i] = action::place(i, who);
 	}
+	
+	// time_t now_t(){
+	// 	return std::chrono::steady_clock::now();
+	// }
+	virtual bool mcts_break(){ return true; }
 	virtual ~basic_agent_func() {}
-
+protected:
+	uint64_t millisec() {
+		auto now = std::chrono::system_clock::now().time_since_epoch();
+		return std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+		// return std::chrono::duration_cast<std::chrono::milliseconds>(now);
+	}
 protected:
 	std::default_random_engine engine;
 	std::vector<action::place> space;
@@ -143,9 +186,7 @@ public:
 	
 	board::piece_type Rollout(node* root, board&state){
 		std::vector<int> tmp = root->empty_vector;
-		// std::vector<int> tmp2 = root->empty_vector;
 		std::shuffle(tmp.begin(), tmp.end(), engine);
-		// std::shuffle(tmp2.begin(), tmp2.end(), engine);
 		int move_count = tmp.size()-1;
 		for(int i=0;i<tmp.size();i++){
 			if(state.place(tmp[i]) == board::legal){
@@ -172,51 +213,113 @@ public:
 private:
 	std::vector<node*> update_node_vector;
 	double c_;
-	double simulation_time_;
 };
 
+class compare{
+public:
+	virtual bool compare_result(const int& bas){return true;}
+};
+
+class time_compare : public compare{
+public:
+	time_compare(const int& limit_range) : compare(), time_limit_(limit_range){
+		time_limit_ = millisec() + limit_range;
+	}
+public:
+	virtual bool compare_result(const int& bas){
+		if(millisec() > time_limit_) return true;
+		return false;
+	}
+	uint64_t millisec() {
+		return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	}
+private:
+	uint64_t time_limit_;
+};
+
+class count_compare : public compare{
+public:
+	count_compare(const int& count_limit) : compare(), count_limit_(count_limit){}
+public:
+	virtual bool compare_result(const int& count){
+		if(count == count_limit_) return true;
+		return false;
+	}
+private:
+	uint64_t count_limit_;
+};
 
 class mcts_management : public mcts_tree{
 public:
-    mcts_management(const std::string& args = "") : mcts_tree(args), total_simulation_count_(100){
+    mcts_management(const std::string& args = "") : mcts_tree(args), total_simulation_count_(100), total_simulation_time_(10005){
 	if (total_simulation_count() != "100") total_simulation_count_ = stoi(total_simulation_count());
+	if (total_simulation_time() != "10005"){
+		total_simulation_time_ = stoi(total_simulation_time());
+		rule = new time_compare(total_simulation_time_);
+	}else{
+		rule = new count_compare(total_simulation_count_);
+	}
+	engine.seed(std::chrono::system_clock::now().time_since_epoch().count());
     }
 
-    // int check_board_info(const int p, const board& b){
-	// 	return b[p/9][p%9];
-	// }
-
-    action simulate_result(const board& state){
-		board after=state;
-        node* root = new node(after);
-		
-		// MCTS 
+    void operator()(const board& state, node* root){
+		board after;
 		int simulation_count=0;
+		// MCTS 
 		while(true){
 			after = state;
 			MCTS_simulate(root, after);
 			simulation_count++;
-			if(simulation_count == total_simulation_count_) break;
+			if(rule->compare_result(simulation_count)) break;
 		}
-
-
-		if(root->level_vector.size() == 0) return action();
-		int max_visit_n=-1;
-		int max_visit_pos=-1;
-		for(auto subn : root->level_vector){
-			if(subn->visit_count > max_visit_n){
-				max_visit_n = subn->visit_count;
-				max_visit_pos = subn->move_position;
-			}
-		}
-		delete root;
-        return action::place(max_visit_pos, who);
+		std::cout << simulation_count << std::endl;
     }
 
-	double time_managment(){
-		double thinking_time;
-		time_management_bias_++;
-		return thinking_time;
+protected:
+	double time_management_bias_;
+    
+private:
+	int total_simulation_count_;
+	int total_simulation_time_;
+	compare* rule;
+};
+
+class mcts_action : public basic_agent_func{
+public:
+	mcts_action(const std::string& args = ""): basic_agent_func(args), args_(args), thread_num_(1){
+		if (thread_num() != "1") thread_num_ = stoi(thread_num());
+	}
+	virtual void close_episode(const std::string& flag = "") {}
+	
+	std::unordered_map<int, int> thread_simulate_result(const board& state){
+		std::vector<std::thread> threads;
+		std::vector<mcts_management> thread_mcts;
+		std::vector<node*> thread_mcts_root;
+		
+
+		for(int i=0;i<thread_num_;i++){
+			node* thread_root = new node(state);
+			thread_mcts_root.push_back(thread_root);
+			mcts_management tmp_mcts(args_);
+			thread_mcts.push_back(std::move(tmp_mcts));
+			std::thread th(thread_mcts[i], state, thread_root);
+			threads.push_back(std::move(th));
+		}
+
+		for(int i=0;i<thread_num_;i++){
+			threads[i].join();
+		}
+		
+		std::unordered_map<int, int> node_table;
+
+		for(auto ro : thread_mcts_root){
+			for(auto n : ro->level_vector){
+				node_table[n->move_position] += n->visit_count;
+				delete n;
+			}
+		}
+
+		return node_table;
 	}
 
 	void print_node(node* n){
@@ -227,23 +330,26 @@ public:
 		std::cout << "empty_vector" << n->empty_vector.size() << ", ";
 		std::cout << std::endl;
 	}
-protected:
-	double time_management_bias_;
-    
-private:
-    int thread_id;
-	double total_simulation_count_;
-};
 
-class mcts_action : public mcts_management {
-public:
-	mcts_action(const std::string& args = "") : mcts_management(args){}
-	virtual void close_episode(const std::string& flag = "") {time_management_bias_ = 1;}
 	virtual action take_action(const board& state) {
-		return simulate_result(state);
+		std::unordered_map<int, int> mcts_root = thread_simulate_result(state);
+		if(mcts_root.size() == 0) return action();
+		int max_visit_pos = -1;
+		int max_visit_time = -1;
+
+		for(auto subn : mcts_root){
+			if(subn.second > max_visit_time){
+				max_visit_pos = subn.first;
+				max_visit_time = subn.second;
+			}
+		}
+	
+        return action::place(max_visit_pos, who);
 	}
+
 private:
-	// double time_management_bias_;
+	std::string args_;
+	int thread_num_;
 };
 
 
@@ -258,13 +364,9 @@ public:
 		}else{
 			std::cout << "random" << std::endl;
 			policy = new random_action(args);
-			// ((random_action*)policy)->a();
 		}
 	}
-	// virtual void open_episode(const std::string& flag = "") {policy = new mcts_action(args_);}
-	// virtual void close_episode(const std::string& flag = "") {delete policy;}
 	virtual action take_action(const board& state) {
-		// policy = new mcts_action(args_);
 		return policy->take_action(state);
 	}
 

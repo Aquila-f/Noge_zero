@@ -3,11 +3,13 @@
 #include <random>
 #include <sstream>
 #include <map>
-// #include <unordered_map>
+// #include <ctime>
+#include <unordered_map>
 // #include <stack>
 // #include <type_traits>
 // #include <algorithm>
 // #include <ctime>
+#include <chrono>
 
 
 #include "board.h"
@@ -15,7 +17,7 @@
 #include "agent.h"
 
 // #include <unistd.h>
-// #include <thread>
+#include <thread>
 // #include <fstream>
 
 
@@ -29,7 +31,7 @@ struct node{
     std::vector<int> empty_vector;
     node() : win_count(0), visit_count(0), available_node_count(-1){}
     node(std::vector<int> inp) : win_count(0), visit_count(0), available_node_count(-1), empty_vector(inp){}
-    node(board& b) : win_count(0), visit_count(0), available_node_count(-1){
+    node(const board& b) : win_count(0), visit_count(0), available_node_count(-1){
         for(int i=0;i<81;i++){
 			if(b[i/9][i%9] == 0) empty_vector.push_back(i);
 		}
@@ -51,3 +53,13 @@ struct node{
     }
 };
 
+class timer{
+public:
+	timer(){}
+	~timer(){}
+protected:
+	time_t millisec() {
+		auto now = std::chrono::system_clock::now().time_since_epoch();
+		return std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+	}
+};
