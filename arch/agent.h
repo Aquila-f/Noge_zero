@@ -53,38 +53,6 @@ protected:
 	std::default_random_engine engine;
 };
 
-// class mcts_control{
-// public:
-// 	mcts_control(){}
-// public:
-// 	virtual bool loop_break(const int& inp_conference){return true;}
-// 	virtual void set_limit(const int& inp){std::cout << "set limit function\n";}
-// };
-
-// class time_controller : public mcts_control, public timer {
-// public:
-// 	time_controller(const time_t& limit_time) : mcts_control(), timer(), limit_time_(limit_time){}
-// public:
-// 	virtual bool loop_break(const int& inp_conference){
-// 		if(inp_conference >= limit_time_) return true;
-// 		return false;
-// 	}
-// 	virtual void set_limit(const int& inp){limit_time_ = inp;}
-// private:
-// 	int limit_time_;
-// };
-// class count_controller : public mcts_control {
-// public:
-// 	count_controller(const time_t limit_count) : mcts_control(), limit_count_(limit_count){}
-// public:
-// 	virtual bool loop_break(const int& inp_conference){
-// 		if(inp_conference >= limit_count_) return true;
-// 		return false;
-// 	}
-// 	virtual void set_limit(const int& inp){limit_count_ = inp;}
-// private:
-// 	int limit_count_;
-// };
 /**
  * base agent for agents with randomness
  */
