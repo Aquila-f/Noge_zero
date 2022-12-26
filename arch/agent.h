@@ -71,17 +71,13 @@ public:
 		for (size_t i = 0; i < space.size(); i++)
 			space[i] = action::place(i, who);
 	}
-	
-	// time_t now_t(){
-	// 	return std::chrono::steady_clock::now();
-	// }
+
 	virtual bool mcts_break(){ return true; }
 	virtual ~basic_agent_func() {}
 protected:
 	uint64_t millisec() {
 		auto now = std::chrono::system_clock::now().time_since_epoch();
 		return std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
-		// return std::chrono::duration_cast<std::chrono::milliseconds>(now);
 	}
 protected:
 	std::default_random_engine engine;
@@ -286,6 +282,7 @@ public:
 				delete n;
 			}
 		}
+		// std::cout << state;
 
 		return node_table;
 	}

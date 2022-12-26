@@ -123,12 +123,12 @@ public:
 		board test = *this;
 		if (test[x][y] != piece_type::empty) return nogo_move_result::illegal_not_empty;
 		test[x][y] = who; // try put a piece first
-		if (test.check_liberty(x, y, who) == 0) return nogo_move_result::illegal_suicide;
+		if (!test.check_liberty(x, y, who)) return nogo_move_result::illegal_suicide;
 		unsigned opp = 3u - who;
-		if (x > p_min.x && test.check_liberty(x - 1, y, opp) == 0) return nogo_move_result::illegal_take;
-		if (x < p_max.x && test.check_liberty(x + 1, y, opp) == 0) return nogo_move_result::illegal_take;
-		if (y > p_min.y && test.check_liberty(x, y - 1, opp) == 0) return nogo_move_result::illegal_take;
-		if (y < p_max.y && test.check_liberty(x, y + 1, opp) == 0) return nogo_move_result::illegal_take;
+		if (x > p_min.x && !test.check_liberty(x - 1, y, opp)) return nogo_move_result::illegal_take;
+		if (x < p_max.x && !test.check_liberty(x + 1, y, opp)) return nogo_move_result::illegal_take;
+		if (y > p_min.y && !test.check_liberty(x, y - 1, opp)) return nogo_move_result::illegal_take;
+		if (y < p_max.y && !test.check_liberty(x, y + 1, opp)) return nogo_move_result::illegal_take;
 		stone[x][y] = who; // is legal move!
 		attr.who_take_turns = static_cast<piece_type>(opp);
 		return nogo_move_result::legal;
@@ -146,11 +146,11 @@ public:
 	 * calculate the liberty of the block of piece at [x][y]
 	 * return >= 0 if [x][y] is placed by who; otherwise return -1
 	 */
-	int check_liberty(int x, int y, unsigned who) const {
+	bool check_liberty(int x, int y, unsigned who) const {
 		grid test = stone;
-		if (test[x][y] != who) return -1;
+		if (test[x][y] != who) return true;
 
-		int liberty = 0;
+		// bool liberty = 0;
 		std::list<point> check;
 		for (check.emplace_back(x, y); check.size(); check.pop_front()) {
 			int x = check.front().x, y = check.front().y;
@@ -159,22 +159,22 @@ public:
 			point p_min(0, 0), p_max(size_x - 1, size_y - 1);
 
 			cell near_l = x > p_min.x ? test[x - 1][y] : -1u; // left
-			if (near_l == piece_type::empty) liberty++;
+			if (near_l == piece_type::empty) return true;
 			else if (near_l == who) check.emplace_back(x - 1, y);
 
 			cell near_r = x < p_max.x ? test[x + 1][y] : -1u; // right
-			if (near_r == piece_type::empty) liberty++;
+			if (near_r == piece_type::empty) return true;
 			else if (near_r == who) check.emplace_back(x + 1, y);
 
 			cell near_d = y > p_min.y ? test[x][y - 1] : -1u; // down
-			if (near_d == piece_type::empty) liberty++;
+			if (near_d == piece_type::empty) return true;
 			else if (near_d == who) check.emplace_back(x, y - 1);
 
 			cell near_u = y < p_max.y ? test[x][y + 1] : -1u; // up
-			if (near_u == piece_type::empty) liberty++;
+			if (near_u == piece_type::empty) return true;
 			else if (near_u == who) check.emplace_back(x, y + 1);
 		}
-		return liberty;
+		return false;
 	}
 
 	void transpose() {
