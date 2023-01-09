@@ -8,7 +8,8 @@
  */
 
 #pragma once
-#include "struct.h"
+#include "mcts_compare.h"
+// #include "struct.h"
 
 
 class agent {
@@ -34,6 +35,7 @@ public:
 	virtual void notify(const std::string& msg) { meta[msg.substr(0, msg.find('='))] = { msg.substr(msg.find('=') + 1) }; }
 	virtual std::string name() const { return property("name"); }
 	virtual std::string role() const { return property("role"); }
+	virtual std::string search() const { return property("search"); }
 	virtual std::string mcts_c() const { return property("c"); }
 	virtual std::string total_simulation_count() const { return property("N"); }
 	virtual std::string total_simulation_time() const { return property("T"); }
@@ -145,6 +147,7 @@ public:
     }	
 
 	double get_Q(const node* n, const int& idx){
+		// other function uct2
 		return (n->level_vector[idx]->win_count/n->level_vector[idx]->visit_count)+c_*sqrt(log(n->visit_count)/n->level_vector[idx]->visit_count);
 	}
 	
@@ -177,40 +180,6 @@ public:
 private:
 	std::vector<node*> update_node_vector;
 	double c_;
-};
-
-class compare{
-public:
-	virtual bool compare_result(const int& bas){return true;}
-};
-
-class time_compare : public compare{
-public:
-	time_compare(const int& limit_range) : compare(), time_limit_(limit_range){
-		time_limit_ = millisec() + limit_range;
-	}
-public:
-	virtual bool compare_result(const int& bas){
-		if(millisec() > time_limit_) return true;
-		return false;
-	}
-	uint64_t millisec() {
-		return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-	}
-private:
-	uint64_t time_limit_;
-};
-
-class count_compare : public compare{
-public:
-	count_compare(const int& count_limit) : compare(), count_limit_(count_limit){}
-public:
-	virtual bool compare_result(const int& count){
-		if(count == count_limit_) return true;
-		return false;
-	}
-private:
-	uint64_t count_limit_;
 };
 
 class mcts_management : public mcts_tree{
@@ -323,7 +292,7 @@ class player : public basic_agent_func {
 public:
 	player(const std::string& args = "") : basic_agent_func(args), args_(args) {
 		// std::cout << args << std::endl;
-		if (name() == "mcts"){
+		if (search() == "mcts"){
 			std::cout << "mcts" << std::endl;
 			policy = new mcts_action(args);
 		}else{

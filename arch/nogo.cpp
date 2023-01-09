@@ -69,8 +69,8 @@ int main(int argc, const char* argv[]) {
 		if (stats.is_finished()) stats.summary();
 	}
 
-	player black("c=0.3 N=100 T=10005 thread=1 name=" + black_args + " role=black");
-	player white("c=0.3 N=100 T=10005 thread=1 name=" + white_args + " role=white");
+	player black("c=0.3 N=100 T=10005 thread=1 search=" + black_args + " role=black name=tcg_judge");
+	player white("c=0.3 N=100 T=10005 thread=1 search=" + white_args + " role=white name=tcg_judge");
 
 	if (!shell) { // launch standard local games
 		while (!stats.is_finished()) {
