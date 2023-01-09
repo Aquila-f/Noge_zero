@@ -2,20 +2,16 @@
 #include <string>
 #include <random>
 #include <sstream>
-#include <map>
 // #include <ctime>
-#include <unordered_map>
 // #include <stack>
 // #include <type_traits>
 // #include <algorithm>
 // #include <ctime>
 #include <chrono>
+#include "../board.h"
+#include "../action.h"
+#include "../agent.h"
 
-
-#include "board.h"
-#include "action.h"
-#include "agent.h"
-#include <thread>
 
 
 
@@ -48,15 +44,4 @@ struct node{
         }
         available_node_count = level_vector.size();
     }
-};
-
-class timer{
-public:
-	timer(){}
-	~timer(){}
-protected:
-	time_t millisec() {
-		auto now = std::chrono::system_clock::now().time_since_epoch();
-		return std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
-	}
 };

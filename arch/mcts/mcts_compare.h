@@ -4,13 +4,15 @@
 
 class compare{
 public:
+	compare(){}
+public:
 	virtual bool compare_result(const int& bas){return true;}
 	virtual void new_game(){}
 };
 
 class time_compare : public compare{
 public:
-	time_compare(const int& limit_range, const int& game_step) : compare(), time_limit_(limit_range), game_step(0){
+	time_compare(const int& limit_range, const int& game_step) : compare(), game_step(0){
 		time_limit_ = millisec() + limit_range;
 		std::cout << game_step << std::endl;
 	}
@@ -44,5 +46,5 @@ public:
 		return false;
 	}
 private:
-	uint64_t count_limit_;
+	int count_limit_;
 };
