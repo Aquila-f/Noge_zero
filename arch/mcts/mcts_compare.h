@@ -12,21 +12,20 @@ public:
 
 class time_compare : public compare{
 public:
-	time_compare(const int& limit_range, const int& game_step) : compare(), game_step(0){
-		time_limit_ = millisec() + limit_range;
-		std::cout << game_step << std::endl;
+	time_compare(const float& limit_range, const int& game_step) : compare(), game_step(0){
+		time_limit_ = millisec() + setup_time(limit_range, game_step);
 	}
 public:
-	virtual bool compare_result(const int& bas){
-		if(bas%500 != 0) return false;
+	virtual bool compare_result(const int& simulation_counts){
+		if(simulation_counts%500 != 0) return false;
 		if(millisec() > time_limit_){
 			game_step++;
 			return true;
 		}
 		return false;
 	}
-	virtual void new_game(){
-		
+	int setup_time(const int& limit_range, const int& game_step){
+		return (2-0.05*game_step)*limit_range;
 	}
 
 	uint64_t millisec() {

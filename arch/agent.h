@@ -39,10 +39,10 @@ public:
 	virtual std::string name() const { return property("name"); }
 	virtual std::string role() const { return property("role"); }
 	virtual std::string search() const { return property("search"); }
-	virtual std::string mcts_c() const { return property("c"); }
-	virtual std::string total_simulation_count() const { return property("N"); }
-	virtual std::string total_simulation_time() const { return property("T"); }
-	virtual std::string thread_num() const { return property("thread"); }
+	virtual float mcts_c() const { return stof(property("c")); }
+	virtual int total_simulation_count() const { return stoi(property("N")); }
+	virtual int total_simulation_time() const { return stoi(property("T"))/36; }
+	virtual int thread_num() const { return stoi(property("thread")); }
 
 protected:
 	typedef std::string key;
@@ -107,7 +107,7 @@ class mcts_action : public basic_agent_func{
 public:
 	mcts_action(const std::string& args = ""): basic_agent_func(args), args_(args), thread_num_(1){
 		std::cout << "0" << std::endl;
-		if (thread_num() != "1") thread_num_ = stoi(thread_num());
+		if (thread_num() != 1) thread_num_ = thread_num();
 	}
 	virtual void close_episode(const std::string& flag = "") {game_step=0;}
 	
@@ -116,11 +116,10 @@ public:
 		std::vector<mcts_management> thread_mcts;
 		std::vector<node*> thread_mcts_root;
 		
-
 		for(int i=0;i<thread_num_;i++){
 			node* thread_root = new node(state);
 			thread_mcts_root.push_back(thread_root);
-			mcts_management tmp_mcts(who, game_step, stoi(total_simulation_count()), stoi(total_simulation_time()), stof(mcts_c()));
+			mcts_management tmp_mcts(who, game_step, total_simulation_count(), total_simulation_time(), mcts_c());
 			thread_mcts.push_back(std::move(tmp_mcts));
 			std::thread th(thread_mcts[i], state, thread_root);
 			threads.push_back(std::move(th));
