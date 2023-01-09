@@ -74,17 +74,12 @@ public:
 			space[i] = action::place(i, who);
 	}
 
-	virtual bool mcts_break(){ return true; }
 	virtual ~basic_agent_func() {}
+
 protected:
-	uint64_t millisec() {
-		auto now = std::chrono::system_clock::now().time_since_epoch();
-		return std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
-	}
-protected:
-	std::default_random_engine engine;
 	std::vector<action::place> space;
 	board::piece_type who;
+	int play_step;
 };
 
 /**
@@ -105,11 +100,11 @@ public:
 	}
 };
 
-class mcts_tree: public basic_agent_func{
+class mcts_tree{
 public:
-	mcts_tree(const std::string& args = "") : basic_agent_func(args),
+	mcts_tree(const board::piece_type& who, const float c) : who_(who),
 		c_(0.3){
-		if (mcts_c() != "0.3") c_ = stof(mcts_c());
+		if (c != 0.3) c_ = c;
     }
 
 
@@ -169,26 +164,29 @@ public:
     }
 
 	void Backpropagation(board::piece_type losser){
-		int win_value = who == losser ? 0 : 1;
+		int win_value = who_ == losser ? 0 : 1;
         for(auto update_node : update_node_vector){
 			update_node->visit_count += 1;
 			update_node->win_count += win_value;
 		}
 		update_node_vector.clear();
     }
+protected:
+	std::default_random_engine engine;
 
 private:
+	board::piece_type who_;
 	std::vector<node*> update_node_vector;
 	double c_;
 };
 
 class mcts_management : public mcts_tree{
 public:
-    mcts_management(const std::string& args = "") : mcts_tree(args), total_simulation_count_(100), total_simulation_time_(10005){
-	if (total_simulation_count() != "100") total_simulation_count_ = stoi(total_simulation_count());
-	if (total_simulation_time() != "10005"){
-		total_simulation_time_ = stoi(total_simulation_time());
-		rule = new time_compare(total_simulation_time_);
+    mcts_management(const board::piece_type& who, const int& gs, const int& tsc, const int& tst, const float& c) : mcts_tree(who, c), total_simulation_count_(100), total_simulation_time_(10005){
+	if (tsc != 100) total_simulation_count_ = tsc;
+	if (tst != 10005){
+		total_simulation_time_ = tst;
+		rule = new time_compare(total_simulation_time_, gs);
 	}else{
 		rule = new count_compare(total_simulation_count_);
 	}
@@ -205,7 +203,7 @@ public:
 			simulation_count++;
 			if(rule->compare_result(simulation_count)) break;
 		}
-		std::cout << simulation_count << std::endl;
+		// std::cout << simulation_count << std::endl;
     }
 
 protected:
@@ -220,9 +218,10 @@ private:
 class mcts_action : public basic_agent_func{
 public:
 	mcts_action(const std::string& args = ""): basic_agent_func(args), args_(args), thread_num_(1){
+		std::cout << "0" << std::endl;
 		if (thread_num() != "1") thread_num_ = stoi(thread_num());
 	}
-	virtual void close_episode(const std::string& flag = "") {}
+	virtual void close_episode(const std::string& flag = "") {game_step=0;}
 	
 	std::unordered_map<int, int> thread_simulate_result(const board& state){
 		std::vector<std::thread> threads;
@@ -233,7 +232,7 @@ public:
 		for(int i=0;i<thread_num_;i++){
 			node* thread_root = new node(state);
 			thread_mcts_root.push_back(thread_root);
-			mcts_management tmp_mcts(args_);
+			mcts_management tmp_mcts(who, game_step, stoi(total_simulation_count()), stoi(total_simulation_time()), stof(mcts_c()));
 			thread_mcts.push_back(std::move(tmp_mcts));
 			std::thread th(thread_mcts[i], state, thread_root);
 			threads.push_back(std::move(th));
@@ -277,12 +276,13 @@ public:
 				max_visit_time = subn.second;
 			}
 		}
-	
+		game_step++;
         return action::place(max_visit_pos, who);
 	}
 
 private:
 	std::string args_;
+	int game_step;
 	int thread_num_;
 };
 
@@ -302,6 +302,9 @@ public:
 	}
 	virtual action take_action(const board& state) {
 		return policy->take_action(state);
+	}
+	virtual void close_episode(const std::string& flag = "") {
+		policy->close_episode();
 	}
 
 private:
