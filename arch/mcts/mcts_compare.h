@@ -12,8 +12,8 @@ public:
 
 class time_compare : public compare{
 public:
-	time_compare(const float& limit_range, const int& game_step) : compare(), game_step(0){
-		time_limit_ = millisec() + setup_time(limit_range, game_step);
+	time_compare(const uint64_t& limit_range, const int& game_step) : compare(), game_step(0), time_limit_(limit_range){
+		// time_limit_ = millisec() + setup_time(limit_range, game_step);
 	}
 public:
 	virtual bool compare_result(const int& simulation_counts){

@@ -43,6 +43,7 @@ public:
 	virtual int total_simulation_count() const { return stoi(property("N")); }
 	virtual int total_simulation_time() const { return stoi(property("T"))/36; }
 	virtual int thread_num() const { return stoi(property("thread")); }
+	virtual int time_management_mode() const { return stoi(property("tm")); }
 
 protected:
 	typedef std::string key;
@@ -103,9 +104,23 @@ public:
 	}
 };
 
+class heuristic_action : public basic_agent_func {
+public:
+	heuristic_action(const std::string& args = "") : basic_agent_func(args){}
+	virtual action take_action(const board& state) {
+		std::shuffle(space.begin(), space.end(), engine);
+		for (const action::place& move : space) {
+			board after = state;
+			if (move.apply(after) == board::legal)
+				return move;
+		}
+		return action();
+	}
+};
+
 class mcts_action : public basic_agent_func{
 public:
-	mcts_action(const std::string& args = ""): basic_agent_func(args), args_(args), thread_num_(1){
+	mcts_action(const std::string& args = ""): basic_agent_func(args), args_(args), thread_num_(1), time_management_mode_(time_management_mode()){
 		std::cout << "0" << std::endl;
 		if (thread_num() != 1) thread_num_ = thread_num();
 	}
@@ -115,11 +130,13 @@ public:
 		std::vector<std::thread> threads;
 		std::vector<mcts_management> thread_mcts;
 		std::vector<node*> thread_mcts_root;
-		
+		if(total_simulation_time() != 277) time_limit_ = millisec() + setup_time(total_simulation_time(), game_step);
+
+
 		for(int i=0;i<thread_num_;i++){
 			node* thread_root = new node(state);
 			thread_mcts_root.push_back(thread_root);
-			mcts_management tmp_mcts(who, game_step, total_simulation_count(), total_simulation_time(), mcts_c());
+			mcts_management tmp_mcts(who, game_step, total_simulation_count(), total_simulation_time(), time_limit_, mcts_c());
 			thread_mcts.push_back(std::move(tmp_mcts));
 			std::thread th(thread_mcts[i], state, thread_root);
 			threads.push_back(std::move(th));
@@ -141,6 +158,11 @@ public:
 
 		return node_table;
 	}
+	int setup_time(const int& limit_range, const int& game_step){
+		if(time_management_mode_ == 1) return (1.9-0.046*game_step)*limit_range;
+		else if(time_management_mode_==2) return pow(1.39-(0.055*game_step-0.8),2)*limit_range;
+		else return limit_range;
+	}
 
 	void print_node(node* n){
 		std::cout << "visit_count " << n->visit_count << ", ";
@@ -151,7 +173,37 @@ public:
 		std::cout << std::endl;
 	}
 
+	uint64_t millisec() {
+		return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	}
+
+	virtual int heur_action(const board& state){
+		board tmp = state;
+		if(tmp.place(4) == board::legal) return 4;
+		if(tmp.place(36) == board::legal) return 36;
+		if(tmp.place(44) == board::legal) return 44;
+		if(tmp.place(76) == board::legal) return 76;
+		return -1;
+	}
+
+	// virtual int mirror_action(const board& state){
+	// 	board tmp = state;
+	// 	// std::cout << state[0] << std::endl;
+	// 	if(state(0) == board::black) std::cout << state << std::endl;
+	// 	if(tmp.place(0) == board::legal) return 0;
+	// 	if(tmp.place(1) == board::legal) return 1;
+	// 	if(tmp.place(2) == board::legal) return 2;
+	// 	if(tmp.place(3) == board::legal) return 3;
+	// 	return -1;
+	// }
+
 	virtual action take_action(const board& state) {
+		if(game_step <= 4){
+			int move = heur_action(state);
+			if(move != -1) return action::place(move, who);
+		}
+		
+
 		std::unordered_map<int, int> mcts_root = thread_simulate_result(state);
 		if(mcts_root.size() == 0) return action();
 		int max_visit_pos = -1;
@@ -171,6 +223,9 @@ private:
 	std::string args_;
 	int game_step;
 	int thread_num_;
+	int time_management_mode_;
+	uint64_t time_limit_;
+	std::vector<int> mirror_v;
 };
 
 

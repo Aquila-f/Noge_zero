@@ -83,11 +83,11 @@ private:
 
 class mcts_management : public mcts_tree{
 public:
-    mcts_management(const board::piece_type& who, const int& gs, const int& tsc, const float& tst, const float& c) : mcts_tree(who, c), total_simulation_count_(100), total_simulation_time_(10005){
+    mcts_management(const board::piece_type& who, const int& gs, const int& tsc, const uint64_t& tst, const uint64_t& limitt, const float& c) : mcts_tree(who, c), total_simulation_count_(100), total_simulation_time_(10005){
 	if (tsc != 100) total_simulation_count_ = tsc;
-	if (tst != 10005){
+	if (tst != 277){
 		total_simulation_time_ = tst;
-		rule = new time_compare(total_simulation_time_, gs);
+		rule = new time_compare(limitt, gs);
 	}else{
 		rule = new count_compare(total_simulation_count_);
 	}
@@ -104,7 +104,7 @@ public:
 			simulation_count++;
 			if(rule->compare_result(simulation_count)) break;
 		}
-		// std::cout << simulation_count << std::endl;
+		std::cout << simulation_count << std::endl;
     }
     
 private:
